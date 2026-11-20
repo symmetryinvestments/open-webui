@@ -18,6 +18,7 @@
 
 	import { deleteOAuthSession } from '$lib/apis/auths';
 	import { getTools } from '$lib/apis/tools';
+	import { isMenuTool, getToolIcon } from '$lib/utils/menuTools';
 	import { getSkills } from '$lib/apis/skills';
 	import { getImageModels } from '$lib/apis/images';
 	import { getVideoModels } from '$lib/apis/videos';
@@ -57,7 +58,7 @@
 		id: string;
 		name: string;
 		description?: string;
-		meta?: { description?: string };
+		meta?: { description?: string; manifest?: Record<string, any>; [key: string]: any };
 		is_active?: boolean;
 		authenticated?: boolean;
 		has_user_valves?: boolean;
@@ -110,7 +111,9 @@
 	let imageModelQuery = '';
 	let videoModelQuery = '';
 
-	$: toolIds = Object.keys(tools ?? {});
+	// Tools pinned to the main menu vs. those left under the "Tools" submenu.
+	$: menuToolIds = Object.keys(tools ?? {}).filter((id) => isMenuTool(tools?.[id]));
+	$: toolIds = Object.keys(tools ?? {}).filter((id) => !isMenuTool(tools?.[id]));
 	$: toolGroups = [
 		[$i18n.t('Workspace'), toolIds.filter((id) => !id.startsWith('server:'))],
 		[
@@ -354,7 +357,7 @@
 	<div class="h-px mx-1 my-1 bg-gray-100 dark:bg-gray-800"></div>
 	<div in:fly={{ x: -20, duration: 150 }}>
 		{#if tools}
-			{#if Object.keys(tools).length > 0}
+			{#if toolIds.length > 0}
 				<button
 					role="menuitem"
 					class="flex w-full justify-between gap-2 items-center h-[1.6875rem] px-2 text-[0.8125rem] font-normal cursor-pointer rounded-xl hover:bg-gray-50/40 dark:hover:bg-gray-800/40"
@@ -367,13 +370,15 @@
 					<div class="flex items-center w-full justify-between">
 						<div class=" line-clamp-1">
 							{$i18n.t('Tools')}
-							<span class="ml-0.5 text-gray-500">{Object.keys(tools).length}</span>
+							<span class="ml-0.5 text-gray-500">{toolIds.length}</span>
 						</div>
 
 						<div class="flex shrink-0 items-center gap-2 text-gray-500">
-							{#if selectedToolIds.length > 0}
+							{#if selectedToolIds.filter((id) => toolIds.includes(id)).length > 0}
 								<span class="text-xs">
-									{$i18n.t('{{COUNT}} selected', { COUNT: selectedToolIds.length })}
+									{$i18n.t('{{COUNT}} selected', {
+										COUNT: selectedToolIds.filter((id) => toolIds.includes(id)).length
+									})}
 								</span>
 							{/if}
 							<ChevronRight />
@@ -491,6 +496,79 @@
 
 						<div class=" shrink-0" inert>
 							<Switch state={selectedFilterIds.includes(filter.id)} />
+						</div>
+					</div>
+				</Tooltip>
+			{/each}
+		{/if}
+
+		{#if tools && menuToolIds.length > 0}
+			{#each menuToolIds as toolId (toolId)}
+				<Tooltip
+					content={resolveLocalizedResource(tools?.[toolId], $i18n.language, 'description')}
+					placement="top-start"
+				>
+					<div
+						class="flex w-full justify-between gap-2 items-center h-[1.6875rem] px-2 text-[0.8125rem] font-normal cursor-pointer rounded-xl hover:bg-gray-50/40 dark:hover:bg-gray-800/40 has-[[role^=menuitem]:focus-visible]:outline-2 has-[[role^=menuitem]:focus-visible]:-outline-offset-2 has-[[role^=menuitem]:focus-visible]:outline-blue-500"
+						role="presentation"
+						on:click={async (e) => {
+							await toggleTool(toolId, e);
+						}}
+					>
+						<button
+							type="button"
+							class="flex-1 truncate text-left cursor-pointer focus-visible:outline-none!"
+							role="menuitemcheckbox"
+							aria-checked={selectedToolIds.includes(toolId)}
+						>
+							<div class="flex flex-1 gap-2 items-center">
+								<div class="shrink-0">
+									{#if getToolIcon(tools?.[toolId])}
+										<div class="size-3.5 items-center flex justify-center">
+											<img
+												src={getToolIcon(tools?.[toolId])}
+												class="size-3.5 {getToolIcon(tools?.[toolId])?.includes('data:image/svg')
+													? 'dark:invert-[80%]'
+													: ''}"
+												style="fill: currentColor;"
+												alt={resolveLocalizedResource(tools?.[toolId], $i18n.language, 'name')}
+											/>
+										</div>
+									{:else}
+										<Wrench />
+									{/if}
+								</div>
+
+								<div class=" truncate">
+									{resolveLocalizedResource(tools?.[toolId], $i18n.language, 'name')}
+								</div>
+							</div>
+						</button>
+
+						{#if tools?.[toolId]?.has_user_valves && ($user?.role === 'admin' || ($user?.permissions?.chat?.valves ?? true))}
+							<div class=" shrink-0">
+								<Tooltip content={$i18n.t('Valves')}>
+									<button
+										aria-label={$i18n.t('Valves')}
+										class="self-center w-fit text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition rounded-full"
+										type="button"
+										on:click={(e) => {
+											e.stopPropagation();
+											e.preventDefault();
+											onShowValves({
+												type: 'tool',
+												id: toolId
+											});
+										}}
+									>
+										<Knobs />
+									</button>
+								</Tooltip>
+							</div>
+						{/if}
+
+						<div class=" shrink-0" inert>
+							<Switch state={selectedToolIds.includes(toolId)} />
 						</div>
 					</div>
 				</Tooltip>
