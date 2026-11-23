@@ -6,7 +6,7 @@
 		estimateMessagesTokens,
 		estimateUsageGrowth
 	} from '$lib/utils/contextUsage';
-	import { resolveLocalizedFunction } from '$lib/utils/localizedContent';
+	import { resolveLocalizedFunction, resolveLocalizedResource } from '$lib/utils/localizedContent';
 	import { functions as localizedFunctions } from '$lib/stores';
 	import DOMPurify from 'dompurify';
 	import { toast } from 'svelte-sonner';
@@ -112,6 +112,7 @@
 	import Photo from '../icons/Photo.svelte';
 	import VideoCamera from '../icons/VideoCamera.svelte';
 	import Wrench from '../icons/Wrench.svelte';
+	import { isMenuTool, getToolIcon } from '$lib/utils/menuTools';
 	import ArrowUpLeft from '../icons/ArrowUpLeft.svelte';
 	import Cube from '../icons/Cube.svelte';
 	import Sparkles from '../icons/Sparkles.svelte';
@@ -956,6 +957,12 @@
 		.reduce((acc, filters) => acc.filter((f1) => filters.some((f2) => f2.id === f1.id)));
 
 	$: showInputSelections = $settings?.showInputSelections ?? false;
+
+	// Tools pinned to the + menu get their own chip, so leave them out of the generic tool counter.
+	let regularSelectedToolIds: string[] = [];
+	$: regularSelectedToolIds = (selectedToolIds ?? []).filter(
+		(id) => !isMenuTool(($tools ?? []).find((t) => t.id === id))
+	);
 
 	let showToolsButton = false;
 	$: showToolsButton = ($tools ?? []).length > 0;
@@ -2778,10 +2785,10 @@
 									{/if}
 
 									<div class="ml-1 flex gap-1.5 shrink-0">
-										{#if showInputSelections && (selectedToolIds ?? []).length > 0 && $visibleControls['chat.selected_tools']}
+										{#if showInputSelections && regularSelectedToolIds.length > 0 && $visibleControls['chat.selected_tools']}
 											<Tooltip
 												content={$i18n.t('{{COUNT}} Available Tools', {
-													COUNT: (selectedToolIds ?? []).length
+													COUNT: regularSelectedToolIds.length
 												})}
 											>
 												<button
@@ -2795,7 +2802,7 @@
 													<Wrench className="size-4" strokeWidth="1.75" />
 
 													<span data-input-label class="text-sm">
-														{(selectedToolIds ?? []).length}
+														{regularSelectedToolIds.length}
 													</span>
 												</button>
 											</Tooltip>
@@ -2885,6 +2892,65 @@
 																e.preventDefault();
 																selectedFilterIds = selectedFilterIds.filter(
 																	(id) => id !== filterId
+																);
+															}}
+														>
+															<XMark className="size-4" strokeWidth="1.75" />
+														</div>
+													</button>
+												</Tooltip>
+											{/if}
+										{/each}
+
+										{#each selectedToolIds.filter( (id) => isMenuTool(($tools ?? []).find((t) => t.id === id)) ) as menuToolId (menuToolId)}
+											{@const menuTool = ($tools ?? []).find((t) => t.id === menuToolId)}
+											{#if showInputSelections && menuTool && $visibleControls['chat.selected_filters']}
+												<Tooltip
+													content={resolveLocalizedResource(menuTool, $i18n.language, 'name')}
+													placement="top"
+												>
+													<button
+														on:click|preventDefault={() => {
+															if (
+																menuTool?.has_user_valves &&
+																($_user?.role === 'admin' ||
+																	($_user?.permissions?.chat?.valves ?? true))
+															) {
+																selectedValvesType = 'tool';
+																selectedValvesItemId = menuToolId;
+																showValvesModal = true;
+															} else {
+																selectedToolIds = selectedToolIds.filter(
+																	(id) => id !== menuToolId
+																);
+															}
+														}}
+														type="button"
+														class="group p-[0.375rem] flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden text-sky-500 dark:text-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-400/10 dark:hover:bg-sky-600/10 border border-sky-200/40 dark:border-sky-500/20 capitalize"
+													>
+														{#if getToolIcon(menuTool)}
+															<div class="size-4 items-center flex justify-center">
+																<img
+																	src={getToolIcon(menuTool)}
+																	class="size-3.5 {getToolIcon(menuTool)?.includes('data:image/svg')
+																		? 'dark:invert-[80%]'
+																		: ''}"
+																	style="fill: currentColor;"
+																	alt={resolveLocalizedResource(menuTool, $i18n.language, 'name')}
+																/>
+															</div>
+														{:else}
+															<Wrench className="size-4" strokeWidth="1.75" />
+														{/if}
+														<!-- svelte-ignore a11y-click-events-have-key-events -->
+														<!-- svelte-ignore a11y-no-static-element-interactions -->
+														<div
+															class="hidden group-hover:block"
+															on:click={(e) => {
+																e.stopPropagation();
+																e.preventDefault();
+																selectedToolIds = selectedToolIds.filter(
+																	(id) => id !== menuToolId
 																);
 															}}
 														>

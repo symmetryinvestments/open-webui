@@ -77,6 +77,20 @@ async def get_tool_module(request, tool_id, load_from_db=True):
 # for the wrong one. Let the choice here be deliberate.
 
 
+
+def get_tool_icon_url(tool_instance, source_module, frontmatter) -> str | None:
+    """Icon for the input bar/menu: frontmatter `icon_url`, else `icon_url`/`icon`
+    defined on the Tools class or at module level (allows multi-line values)."""
+    return (
+        (frontmatter or {}).get('icon_url')
+        or getattr(tool_instance, 'icon_url', None)
+        or getattr(source_module, 'icon_url', None)
+        or getattr(tool_instance, 'icon', None)
+        or getattr(source_module, 'icon', None)
+        or None
+    )
+
+
 @router.get('/', response_model=list[ToolUserResponse])
 async def get_tools(
     request: Request,
@@ -590,6 +604,7 @@ async def create_new_tools(
             )
             form_data.meta.manifest = frontmatter
             form_data.meta.has_user_valves = hasattr(tool_module, 'UserValves')
+            form_data.meta.icon_url = get_tool_icon_url(tool_module, source_module, frontmatter)
 
             specs = get_local_tool_specs(tool_module)
             tools = await Tools.insert_new_tool(user.id, form_data, specs, db=db, module=tool_module)
@@ -725,6 +740,7 @@ async def _update_tool(request, id, form_data, user, db, version_id=None):
         tool_module, frontmatter, source_module = await load_tool_module_by_id(id, content=form_data.content)
         form_data.meta.manifest = frontmatter
         form_data.meta.has_user_valves = hasattr(tool_module, 'UserValves')
+        form_data.meta.icon_url = get_tool_icon_url(tool_module, source_module, frontmatter)
 
         specs = get_local_tool_specs(tool_module)
 
