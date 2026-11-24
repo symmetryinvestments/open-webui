@@ -91,6 +91,18 @@ def get_tool_icon_url(tool_instance, source_module, frontmatter) -> str | None:
     )
 
 
+def get_server_menu_meta(info: dict | None) -> dict:
+    """`show_in_menu` / `icon_url` set on a tool server connection's `info`, shaped like the
+    `meta` a workspace tool gets from its frontmatter so the frontend treats both the same."""
+    info = info or {}
+    meta = {}
+    if str(info.get('show_in_menu', '')).strip().lower() in ('true', '1', 'yes'):
+        meta['manifest'] = {'show_in_menu': True}
+    if info.get('icon_url'):
+        meta['icon_url'] = info['icon_url']
+    return meta
+
+
 @router.get('/', response_model=list[ToolUserResponse])
 async def get_tools(
     request: Request,
@@ -175,6 +187,7 @@ async def get_tools(
                     'name': server.get('openapi', {}).get('info', {}).get('title', 'Tool Server'),
                     'meta': {
                         'description': server.get('openapi', {}).get('info', {}).get('description', ''),
+                        **get_server_menu_meta(connection.get('info')),
                     },
                     'specs': [
                         spec
@@ -215,6 +228,7 @@ async def get_tools(
                         'name': info.get('name', 'MCP Tool Server'),
                         'meta': {
                             'description': info.get('description', ''),
+                            **get_server_menu_meta(info),
                         },
                         'updated_at': int(time.time()),
                         'created_at': int(time.time()),

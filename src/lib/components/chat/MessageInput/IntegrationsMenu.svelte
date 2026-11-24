@@ -333,6 +333,27 @@
 		}
 	};
 
+	const disconnectToolOAuth = async (toolId: string, e: MouseEvent) => {
+		e.stopPropagation();
+		e.preventDefault();
+
+		const parts = toolId.split(':');
+		const serverId = parts.at(-1) ?? toolId;
+		const provider = `mcp:${serverId}`;
+
+		try {
+			await deleteOAuthSession(localStorage.token, provider);
+			toast.success($i18n.t('OAuth session disconnected'));
+
+			// Refresh tools to update authenticated state
+			_tools.set(await getTools(localStorage.token));
+			selectedToolIds = selectedToolIds.filter((id) => id !== toolId);
+			await init();
+		} catch (err) {
+			toast.error(err ?? $i18n.t('Failed to disconnect'));
+		}
+	};
+
 	const toggleSkill = async (skillId: string) => {
 		const skill = skills?.[skillId];
 		if (!skill) return;
@@ -509,17 +530,23 @@
 					placement="top-start"
 				>
 					<div
-						class="flex w-full justify-between gap-2 items-center h-[1.6875rem] px-2 text-[0.8125rem] font-normal cursor-pointer rounded-xl hover:bg-gray-50/40 dark:hover:bg-gray-800/40 has-[[role^=menuitem]:focus-visible]:outline-2 has-[[role^=menuitem]:focus-visible]:-outline-offset-2 has-[[role^=menuitem]:focus-visible]:outline-blue-500"
+						class="relative flex w-full justify-between gap-2 items-center h-[1.6875rem] px-2 text-[0.8125rem] font-normal cursor-pointer rounded-xl hover:bg-gray-50/40 dark:hover:bg-gray-800/40 has-[[role^=menuitem]:focus-visible]:outline-2 has-[[role^=menuitem]:focus-visible]:-outline-offset-2 has-[[role^=menuitem]:focus-visible]:outline-blue-500"
 						role="presentation"
 						on:click={async (e) => {
 							await toggleTool(toolId, e);
 						}}
 					>
+						{#if !(tools?.[toolId]?.authenticated ?? true)}
+							<!-- make it slighly darker; a click still starts the OAuth flow via toggleTool -->
+							<div class="absolute inset-0 opacity-50 rounded-xl cursor-pointer z-10"></div>
+						{/if}
 						<button
 							type="button"
 							class="flex-1 truncate text-left cursor-pointer focus-visible:outline-none!"
-							role="menuitemcheckbox"
-							aria-checked={selectedToolIds.includes(toolId)}
+							role={(tools?.[toolId]?.authenticated ?? true) ? 'menuitemcheckbox' : 'menuitem'}
+							aria-checked={(tools?.[toolId]?.authenticated ?? true)
+								? selectedToolIds.includes(toolId)
+								: undefined}
 						>
 							<div class="flex flex-1 gap-2 items-center">
 								<div class="shrink-0">
@@ -544,6 +571,21 @@
 								</div>
 							</div>
 						</button>
+
+						{#if tools?.[toolId]?.authenticated === true && toolId.startsWith('server:mcp:')}
+							<div class="shrink-0">
+								<Tooltip content={$i18n.t('Disconnect OAuth')}>
+									<button
+										aria-label={$i18n.t('Disconnect OAuth')}
+										class="self-center w-fit text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition rounded-full"
+										type="button"
+										on:click={(e) => disconnectToolOAuth(toolId, e)}
+									>
+										<LinkSlash className="size-3.5" />
+									</button>
+								</Tooltip>
+							</div>
+						{/if}
 
 						{#if tools?.[toolId]?.has_user_valves && ($user?.role === 'admin' || ($user?.permissions?.chat?.valves ?? true))}
 							<div class=" shrink-0">
@@ -828,26 +870,7 @@
 												aria-label={$i18n.t('Disconnect OAuth')}
 												class="self-center w-fit text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition rounded-full"
 												type="button"
-												on:click={async (e) => {
-													e.stopPropagation();
-													e.preventDefault();
-
-													const parts = toolId.split(':');
-													const serverId = parts.at(-1) ?? toolId;
-													const provider = `mcp:${serverId}`;
-
-													try {
-														await deleteOAuthSession(localStorage.token, provider);
-														toast.success($i18n.t('OAuth session disconnected'));
-
-														// Refresh tools to update authenticated state
-														_tools.set(await getTools(localStorage.token));
-														selectedToolIds = selectedToolIds.filter((id) => id !== toolId);
-														await init();
-													} catch (err) {
-														toast.error(err ?? $i18n.t('Failed to disconnect'));
-													}
-												}}
+												on:click={(e) => disconnectToolOAuth(toolId, e)}
 											>
 												<LinkSlash className="size-3.5" />
 											</button>
