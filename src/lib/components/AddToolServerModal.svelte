@@ -58,6 +58,8 @@
 	let id = '';
 	let name = '';
 	let description = '';
+	let showInMenu = false;
+	let iconUrl = '';
 
 	let oauthClientInfo = null;
 
@@ -263,6 +265,8 @@
 					id = data.info.id ?? '';
 					name = data.info.name ?? '';
 					description = data.info.description ?? '';
+					showInMenu = data.info.show_in_menu ?? false;
+					iconUrl = data.info.icon_url ?? '';
 					oauthScope = data.info.oauth_scope ?? '';
 					oauthResourceParameter = data.info.oauth_resource_parameter ?? 'auto';
 				}
@@ -305,6 +309,8 @@
 					id: id,
 					name: name,
 					description: description,
+					...(showInMenu ? { show_in_menu: true } : {}),
+					...(iconUrl.trim() ? { icon_url: iconUrl.trim() } : {}),
 					...(type === 'mcp' && ['oauth_2.1', 'oauth_2.1_static'].includes(auth_type)
 						? {
 								...(oauthScope ? { oauth_scope: oauthScope } : {}),
@@ -396,6 +402,8 @@
 				id: id,
 				name: name,
 				description: description,
+				...(showInMenu ? { show_in_menu: true } : {}),
+				...(iconUrl.trim() ? { icon_url: iconUrl.trim() } : {}),
 				...(type === 'mcp' && oauthAuthTypes.includes(auth_type)
 					? {
 							...(oauthScope ? { oauth_scope: oauthScope } : {}),
@@ -433,6 +441,8 @@
 		id = '';
 		name = '';
 		description = '';
+		showInMenu = false;
+		iconUrl = '';
 
 		oauthClientInfo = null;
 		oauthClientId = '';
@@ -466,6 +476,8 @@
 			id = connection.info?.id ?? '';
 			name = connection.info?.name ?? '';
 			description = connection.info?.description ?? '';
+			showInMenu = connection.info?.show_in_menu ?? false;
+			iconUrl = connection.info?.icon_url ?? '';
 			oauthClientInfo = connection.info?.oauth_client_info ?? null;
 			oauthClientId = connection.info?.oauth_client_id ?? '';
 			oauthClientSecret = connection.info?.oauth_client_secret ?? '';
@@ -868,6 +880,39 @@
 						</div>
 
 						{#if showAdvanced}
+							<div class="flex items-center justify-between gap-3 mt-2">
+								<div>
+									<label for="show-in-menu" class="text-xs text-gray-500">
+										{$i18n.t('Show in main menu')}
+									</label>
+									<p class="text-xs text-gray-500">
+										{$i18n.t(
+											'List this server directly in the + menu instead of under the Tools submenu.'
+										)}
+									</p>
+								</div>
+								<Switch
+									id="show-in-menu"
+									ariaLabel={$i18n.t('Show in main menu')}
+									bind:state={showInMenu}
+								/>
+							</div>
+
+							<div class="flex flex-col w-full mt-2">
+								<label for="icon-url" class="mb-0.5 text-xs text-gray-500">
+									{$i18n.t('Icon URL')}
+								</label>
+
+								<input
+									id="icon-url"
+									class={`w-full text-sm ${inputClass}`}
+									type="text"
+									bind:value={iconUrl}
+									placeholder={$i18n.t('Enter an image URL or data: URI (optional)')}
+									autocomplete="off"
+								/>
+							</div>
+
 							{#if ['', 'openapi'].includes(type)}
 								<div class="flex items-center justify-between gap-3 mt-2">
 									<div>
